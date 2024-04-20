@@ -15,14 +15,12 @@ export function EndGameModal({
   onClick,
   withoutSuperpowers,
 }) {
-  const [userName, setUserName] = useState(""); // Состояние для хранения введенного имени пользователя
+  const [userName, setUserName] = useState("");
 
-  // Функция для обработки изменений в поле ввода имени
   const handleNameChange = event => {
-    setUserName(event.target.value); // Обновляем состояние с введенным именем
+    setUserName(event.target.value);
   };
 
-  //состояние легкого режима
   const isEasyMode = useSelector(state => state.game.isEasyMode);
 
   function achievements() {
