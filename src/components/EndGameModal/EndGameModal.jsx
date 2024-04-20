@@ -77,4 +77,6 @@ export function EndGameModal({
       ) : (
         ""
       )}
-    </div> );}
+    </div>
+  );
+}
