@@ -71,10 +71,12 @@ export function EndGameModal({
 
       <Button onClick={handleAddLeader}>Начать сначала</Button>
       {isLeader ? (
-        <Link className={styles.leaderboardLink} to="/leaderboard" onClick={handleAddLeader}>
+        <Link className={styles.leaderboardLink} to="/leaderboard">
           Перейти к лидерборду
         </Link>
       ) : (
         ""
       )}
-    </div> );}
+    </div>
+  );
+}
