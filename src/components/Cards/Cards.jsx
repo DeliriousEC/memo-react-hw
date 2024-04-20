@@ -9,11 +9,17 @@ import { useDispatch, useSelector } from "react-redux";
 import { removeAttempts, updateAttempts } from "../../store/slices";
 import { attemptForms, wordEndingChanger } from "../../helpers";
 import { getAllScore } from "../../api";
+import { AlohomoraPower } from "../Superpowers/AlohomoraPower";
+import { PiphanyPower } from "../Superpowers/PiphanyPower";
+import { ToolTips } from "../../utils/tooltips/tooltip";
 
 const STATUS_LOST = "STATUS_LOST";
 const STATUS_WON = "STATUS_WON";
+
 const STATUS_IN_PROGRESS = "STATUS_IN_PROGRESS";
+
 const STATUS_PREVIEW = "STATUS_PREVIEW";
+
 const STATUS_PAUSED = "STATUS_PAUSED";
 
 function getTimerValue(startDate, endDate) {
@@ -40,21 +46,29 @@ function getTimerValue(startDate, endDate) {
 export function Cards({ pairsCount = 3, previewSeconds = 5 }) {
   const dispatch = useDispatch();
 
+  // В cards лежит игровое поле - массив карт и их состояние открыта\закрыта
   const [cards, setCards] = useState([]);
+  // Текущий статус игры
   const [status, setStatus] = useState(STATUS_PREVIEW);
 
+  // Дата начала игры
   const [gameStartDate, setGameStartDate] = useState(null);
+  // Дата конца игры
   const [gameEndDate, setGameEndDate] = useState(null);
 
+  // Стейт для таймера, высчитывается в setInteval на основе gameStartDate и gameEndDate
   const [timer, setTimer] = useState({
     seconds: 0,
     minutes: 0,
   });
 
+  // количество оставшихся попыток
   const attempts = useSelector(store => store.game.attempts);
 
+  // Статус режима игры до трех ошибок
   const isEasyMode = useSelector(store => store.game.isEasyMode);
 
+  // Если допущено 3 ошибки, игра заканчивается
   useEffect(() => {
     if (attempts === 0) {
       finishGame(STATUS_LOST);
@@ -72,6 +86,10 @@ export function Cards({ pairsCount = 3, previewSeconds = 5 }) {
     setGameStartDate(startDate);
     setTimer(getTimerValue(startDate, null));
     setStatus(STATUS_IN_PROGRESS);
+    setIsPiphanyAvailable(true);
+    setIsPiphanyHover(false);
+    setIsAlohomoraAvailable(true);
+    setIsAlohomoraHover(false);
   }
 
   function resetGame() {
@@ -82,10 +100,19 @@ export function Cards({ pairsCount = 3, previewSeconds = 5 }) {
     setStatus(STATUS_PREVIEW);
   }
 
+  /**
+   * Обработка основного действия в игре - открытие карты.
+   * После открытия карты игра может переходить в следующие состояния
+   * - "Игрок выиграл", если на поле открыты все карты
+   * - "Игрок проиграл", если на поле есть две открытые карты без пары
+   * - "Игра продолжается", если не случилось первых двух условий
+   */
   const openCard = clickedCard => {
+    // Если карта уже открыта, то ничего не делаем
     if (clickedCard.open) {
       return;
     }
+    // Игровое поле после открытия кликнутой карты
     const nextCards = cards.map(card => {
       if (card.id !== clickedCard.id) {
         return card;
@@ -208,11 +235,17 @@ export function Cards({ pairsCount = 3, previewSeconds = 5 }) {
     };
   }, [status, pairsCount, previewSeconds]);
 
+  // Добавляем состояние для хранения идентификатора таймера
+  const [timeoutId, setTimeoutId] = useState(null);
+
   // Обновляем значение таймера в интервале
   useEffect(() => {
     const intervalId = setInterval(() => {
       setTimer(getTimerValue(gameStartDate, gameEndDate));
     }, 300);
+
+    // Сохраняем идентификатор таймера в состоянии
+    setTimeoutId(intervalId);
 
     return () => {
       // Очищаем таймер при размонтировании компонента или изменении зависимостей
@@ -222,6 +255,93 @@ export function Cards({ pairsCount = 3, previewSeconds = 5 }) {
 
   //устанавливаем корректное окончание слова "попытка" в зависимости от оставшегося числа попыток
   const attemptsText = wordEndingChanger.changeEnding(attempts, attemptForms);
+
+  //Реализация суперсил
+  const [isPiphanyAvailable, setIsPiphanyAvailable] = useState(true); // Доступно ли использование "Прозрение"
+  const [isAlohomoraAvailable, setIsAlohomoraAvailable] = useState(true); // Доступно ли использование "Алохомора"
+  const [isPiphanyHover, setIsPiphanyHover] = useState(false);
+  const [isAlohomoraHover, setIsAlohomoraHover] = useState(false);
+
+  const onPiphanyHover = () => {
+    setIsPiphanyHover(true);
+  };
+
+  const onPiphanyHoverLeave = () => {
+    setIsPiphanyHover(false);
+  };
+
+  const onAlohomoraHover = () => {
+    setIsAlohomoraHover(true);
+  };
+
+  const onAlohomoraHoverLeave = () => {
+    setIsAlohomoraHover(false);
+  };
+
+  //суперсила "Прозрение": На 5 секунд показываются все карты. Таймер длительности игры на это время останавливается.
+  function usePiphany() {
+    // Очищаем предыдущий таймер
+    clearTimeout(timeoutId);
+
+    // Останавливаем таймер
+    setStatus(STATUS_PAUSED);
+    setIsPiphanyAvailable(false);
+
+    // Сохраняем текущее время
+    const currentTime = new Date().getTime();
+
+    // Запускаем таймер через 5 секунд
+    const newTimeoutId = setTimeout(() => {
+      // Возобновляем игру и обновляем время начала игры
+      setGameStartDate(prevStartDate => {
+        // Вычисляем разницу времени между текущим временем и временем остановки таймера
+        const timeDifference = new Date().getTime() - currentTime;
+        // Возвращаем новое время начала игры, с учетом времени остановки таймера
+        return new Date(prevStartDate.getTime() + timeDifference);
+      });
+      setStatus(STATUS_IN_PROGRESS);
+    }, 5000);
+
+    // Обновляем состояние timeoutId
+    setTimeoutId(newTimeoutId);
+  }
+
+  //суперсила "Алохомора": Открывается случайная пара карт.
+  function useAlohomora() {
+    setIsAlohomoraAvailable(false);
+
+    const closedCards = cards.filter(card => !card.open);
+
+    const firstRandomIndex = Math.floor(Math.random() * closedCards.length);
+    const firstRandomCard = closedCards[firstRandomIndex];
+
+    closedCards.splice(firstRandomIndex, 1);
+
+    const secondRandomIndex = Math.floor(Math.random() * (closedCards.length - 1));
+    const secondRandomCard = closedCards[secondRandomIndex];
+
+    closedCards.splice(secondRandomIndex, 1);
+
+    setCards(
+      cards.map(card => {
+        if (card === firstRandomCard || card === secondRandomCard) {
+          return { ...card, open: true };
+        } else {
+          return card;
+        }
+      }),
+    );
+
+    //проверка на победу
+    const isPlayerWon = closedCards.every(card => card.open);
+
+    if (isPlayerWon) {
+      finishGame(STATUS_WON);
+      return;
+    }
+  }
+
+  const withoutSuperpowers = isPiphanyAvailable && isAlohomoraAvailable;
 
   return (
     <div className={styles.container}>
@@ -258,7 +378,49 @@ export function Cards({ pairsCount = 3, previewSeconds = 5 }) {
         </div>
         {status === STATUS_IN_PROGRESS || status === STATUS_PAUSED ? (
           <div className={styles.buttonContainer}>
-            <div className={styles.powersContainer}> </div>
+            <div className={styles.powersContainer}>
+              {status === STATUS_IN_PROGRESS || status === STATUS_PAUSED ? (
+                <>
+                  <PiphanyPower
+                    isAvailable={isPiphanyAvailable}
+                    onClick={usePiphany}
+                    onMouseEnter={onPiphanyHover}
+                    onMouseLeave={onPiphanyHoverLeave}
+                    setIsPiphanyHover={setIsPiphanyHover}
+                    isAlohomoraHover={isAlohomoraHover}
+                    isAlohomoraAvailable={isAlohomoraAvailable}
+                  />
+                  <AlohomoraPower
+                    isAvailable={isAlohomoraAvailable}
+                    onClick={useAlohomora}
+                    onMouseEnter={onAlohomoraHover}
+                    onMouseLeave={onAlohomoraHoverLeave}
+                    setIsAlohomoraHover={setIsAlohomoraHover}
+                    isPiphanyHover={isPiphanyHover}
+                    isPiphanyAvailable={isPiphanyAvailable}
+                  />
+                  {(isPiphanyHover && isPiphanyAvailable) || (isAlohomoraHover && isAlohomoraAvailable) ? (
+                    <>
+                      {isPiphanyHover && isPiphanyAvailable && (
+                        <div className={styles.toolTipPiphany}>
+                          <ToolTips
+                            title={"Прозрение"}
+                            text={
+                              "На 5 секунд показываются все карты. Таймер длительности игры на это время останавливается."
+                            }
+                          />
+                        </div>
+                      )}
+                      {isAlohomoraHover && isAlohomoraAvailable && (
+                        <div className={styles.toolTipAlohomora}>
+                          <ToolTips title={"Алохомора"} text={"Открывается случайная пара карт."} />
+                        </div>
+                      )}
+                    </>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
             <Button onClick={resetGame}>Начать заново</Button>
           </div>
         ) : null}
@@ -282,6 +444,7 @@ export function Cards({ pairsCount = 3, previewSeconds = 5 }) {
             gameDurationMinutes={timer.minutes}
             onClick={resetGame}
             isLeader={isLeader}
+            withoutSuperpowers={withoutSuperpowers}
           />
         </div>
       ) : null}
